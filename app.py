@@ -1,7 +1,6 @@
 import streamlit as st
 import subprocess
 import os
-import re
 from tools_data import TOOLS, CATEGORIES
 
 # ==================== إعداد الصفحة ====================
@@ -9,10 +8,10 @@ st.set_page_config(
     page_title="إرث إليوت | Eliot's Legacy",
     page_icon="💀",
     layout="wide",
-    initial_sidebar_state="expanded"  # الشريط الجانبي مفتوح دائماً
+    initial_sidebar_state="expanded"
 )
 
-# ==================== CSS مخصص ====================
+# ==================== CSS مخصص مع شريط جانبي ثابت ====================
 st.markdown("""
 <style>
 /* إخفاء علامة Streamlit */
@@ -20,28 +19,134 @@ st.markdown("""
 footer {visibility: hidden;}
 header {visibility: hidden;}
 
-/* منع اختفاء الشريط الجانبي */
+/* إخفاء الشريط الجانبي الافتراضي */
 [data-testid="stSidebar"] {
-    min-width: 280px !important;
-    max-width: 280px !important;
+    display: none !important;
 }
 [data-testid="stSidebarCollapsedControl"] {
     display: none !important;
 }
 
-/* إطارات الأدوات */
+/* توسيع المحتوى الرئيسي ليملأ الشاشة */
+[data-testid="stAppViewContainer"] > .main {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+[data-testid="stAppViewContainer"] > .main > .block-container {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    max-width: 100% !important;
+}
+
+/* ========== الشريط الجانبي المخصص ========== */
+.custom-sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 280px;
+    height: 100vh;
+    background: linear-gradient(180deg, #0a0a0f 0%, #0d0d1a 100%);
+    border-left: 1px solid rgba(0, 255, 204, 0.15);
+    z-index: 9999;
+    overflow-y: auto;
+    padding: 20px 16px;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.sidebar-title {
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: #00ffcc;
+    text-align: center;
+    margin-bottom: 4px;
+    text-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+}
+
+.sidebar-subtitle {
+    font-size: 0.75rem;
+    color: #666;
+    text-align: center;
+    margin-bottom: 20px;
+    letter-spacing: 2px;
+}
+
+.sidebar-stats {
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.sidebar-stats span {
+    color: #00ffcc;
+    font-weight: 700;
+    font-size: 1.2rem;
+}
+
+.sidebar-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+    margin: 16px 0;
+}
+
+.sidebar-radio {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sidebar-radio-btn {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: #888;
+    text-align: right;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: inherit;
+    transition: all 0.15s ease;
+}
+
+.sidebar-radio-btn:hover {
+    background: rgba(255,255,255,0.04);
+    color: #ccc;
+}
+
+.sidebar-radio-btn.active {
+    background: rgba(0, 255, 204, 0.08);
+    color: #00ffcc;
+    font-weight: 600;
+    border-right: 3px solid #00ffcc;
+}
+
+.sidebar-footer {
+    margin-top: 20px;
+    font-size: 0.7rem;
+    color: #444;
+    text-align: center;
+}
+
+/* إفساح مجال للشريط الجانبي */
+.main-content {
+    margin-right: 280px;
+    padding: 20px;
+}
+
+/* تحسينات عامة */
 .stExpander {
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-radius: 10px !important;
     margin-bottom: 10px !important;
     transition: all 0.3s ease !important;
 }
 .stExpander:hover {
     border-color: rgba(255, 0, 127, 0.3) !important;
-    box-shadow: 0 0 15px rgba(255, 0, 127, 0.1) !important;
 }
 
-/* الطرفية */
 .terminal-output {
     background-color: #0a0a0a;
     color: #00ffcc;
@@ -55,7 +160,6 @@ header {visibility: hidden;}
     border: 1px solid #00ffcc33;
 }
 
-/* رد المساعد الذكي */
 .ai-response {
     background: linear-gradient(135deg, rgba(0,255,204,0.05), rgba(124,77,255,0.05));
     border: 1px solid rgba(0,255,204,0.2);
@@ -64,52 +168,14 @@ header {visibility: hidden;}
     margin: 10px 0;
 }
 
-/* تحسين الأزرار */
-.stButton > button {
-    border-radius: 8px !important;
-    transition: all 0.2s ease !important;
-}
-.stButton > button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
-}
-
-/* حقل الإدخال */
-.stTextInput > div > div > input {
-    border-radius: 8px !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-}
-.stTextInput > div > div > input:focus {
-    border-color: #00ffcc !important;
-    box-shadow: 0 0 10px rgba(0,255,204,0.2) !important;
-}
-
-/* Radio buttons */
-.stRadio > div {
-    gap: 4px !important;
-}
-.stRadio label {
-    padding: 8px 12px !important;
-    border-radius: 6px !important;
-    transition: all 0.2s ease !important;
-}
-.stRadio label:hover {
-    background: rgba(255,255,255,0.03) !important;
-}
-
-/* شريط التمرير */
-::-webkit-scrollbar {
-    width: 6px;
-}
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.1);
-    border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(0,255,204,0.3);
+/* للهواتف */
+@media (max-width: 768px) {
+    .custom-sidebar {
+        width: 240px;
+    }
+    .main-content {
+        margin-right: 240px;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -170,83 +236,43 @@ def execute_command(command):
 # ==================== المساعد الذكي ====================
 def ai_analyze_query(query):
     query_lower = query.lower()
-
     keyword_map = {
-        "منافذ": ["nmap", "masscan"],
-        "بورت": ["nmap", "masscan"],
-        "فحص": ["nmap", "masscan", "nikto"],
-        "شبكة": ["nmap", "arp_sweep"],
-        "واي فاي": ["wifi_scan"],
-        "wifi": ["wifi_scan"],
-        "مسح": ["nmap", "masscan"],
-        "smb": ["smb_version", "eternal_blue", "psexec"],
-        "eternal": ["eternal_blue"],
-        "wannacry": ["eternal_blue"],
-        "rdp": ["bluekeep"],
-        "bluekeep": ["bluekeep"],
-        "log4j": ["log4shell"],
-        "log4shell": ["log4shell"],
-        "psexec": ["psexec"],
-        "bash": ["shellshock"],
-        "shellshock": ["shellshock"],
-        "sql": ["sqli_tester", "sqlmap"],
-        "حقن": ["sqli_tester", "nosql_injection", "ssti_detector", "xxe_tester"],
-        "xss": ["xss_scanner"],
-        "jwt": ["jwt_toolkit"],
-        "token": ["jwt_toolkit"],
-        "nosql": ["nosql_injection"],
-        "mongodb": ["nosql_injection"],
-        "xxe": ["xxe_tester"],
-        "xml": ["xxe_tester"],
-        "lfi": ["lfi_scanner"],
-        "ملفات": ["lfi_scanner"],
-        "ssti": ["ssti_detector"],
-        "قالب": ["ssti_detector"],
-        "ssrf": ["ssrf_exploiter"],
-        "csrf": ["csrf_analyzer"],
-        "serial": ["insecure_deserialize"],
-        "تسلسل": ["insecure_deserialize"],
+        "منافذ": ["nmap", "masscan"], "بورت": ["nmap", "masscan"],
+        "فحص": ["nmap", "masscan", "nikto"], "شبكة": ["nmap", "arp_sweep"],
+        "واي فاي": ["wifi_scan"], "wifi": ["wifi_scan"],
+        "مسح": ["nmap", "masscan"], "smb": ["smb_version", "eternal_blue", "psexec"],
+        "eternal": ["eternal_blue"], "wannacry": ["eternal_blue"],
+        "rdp": ["bluekeep"], "bluekeep": ["bluekeep"],
+        "log4j": ["log4shell"], "log4shell": ["log4shell"],
+        "psexec": ["psexec"], "bash": ["shellshock"], "shellshock": ["shellshock"],
+        "sql": ["sqli_tester", "sqlmap"], "حقن": ["sqli_tester", "nosql_injection", "ssti_detector", "xxe_tester"],
+        "xss": ["xss_scanner"], "jwt": ["jwt_toolkit"], "token": ["jwt_toolkit"],
+        "nosql": ["nosql_injection"], "mongodb": ["nosql_injection"],
+        "xxe": ["xxe_tester"], "xml": ["xxe_tester"],
+        "lfi": ["lfi_scanner"], "ملفات": ["lfi_scanner"],
+        "ssti": ["ssti_detector"], "قالب": ["ssti_detector"],
+        "ssrf": ["ssrf_exploiter"], "csrf": ["csrf_analyzer"],
+        "serial": ["insecure_deserialize"], "تسلسل": ["insecure_deserialize"],
         "osint": ["theharvester", "sherlock", "holehe", "subfinder"],
         "معلومات": ["theharvester", "whois", "dig"],
         "نطاق": ["subfinder", "whois", "dig", "theharvester"],
-        "بريد": ["holehe"],
-        "ايميل": ["holehe"],
-        "يوزر": ["sherlock"],
-        "اسم مستخدم": ["sherlock"],
-        "كلمة مرور": ["hydra", "john", "hashcat"],
-        "تخمين": ["hydra"],
-        "هاش": ["john", "hashcat"],
-        "hash": ["john", "hashcat"],
-        "تشفير": ["john", "hashcat"],
-        "ssl": ["ssl_scanner"],
-        "tls": ["ssl_scanner"],
-        "رؤوس": ["security_headers"],
-        "headers": ["security_headers"],
-        "كوكيز": ["cookie_analyzer"],
-        "cors": ["cors_checker"],
-        "clickjack": ["clickjacking"],
-        "arp": ["arp_watchdog"],
-        "spoof": ["arp_watchdog"],
-        "hashdump": ["hashdump"],
-        "sam": ["hashdump"],
-        "صلاحيات": ["getsystem"],
-        "system": ["getsystem"],
-        "persistence": ["persistence"],
-        "باب خلفي": ["persistence"],
-        "keylogger": ["keylogger"],
-        "تجسس": ["keylogger"],
-        "migrate": ["migrate"],
-        "pivot": ["pivoting"],
-        "شبكة داخلية": ["pivoting"],
-        "metasploit": ["metasploit"],
-        "beef": ["beef"],
-        "متصفح": ["beef"],
-        "هندسة اجتماعية": ["set"],
-        "تصيد": ["set"],
-        "empire": ["empire"],
-        "powershell": ["empire"],
-        "cobalt": ["cobalt_strike"],
-        "toolx": ["toolx"],
+        "بريد": ["holehe"], "ايميل": ["holehe"],
+        "يوزر": ["sherlock"], "اسم مستخدم": ["sherlock"],
+        "كلمة مرور": ["hydra", "john", "hashcat"], "تخمين": ["hydra"],
+        "هاش": ["john", "hashcat"], "hash": ["john", "hashcat"],
+        "تشفير": ["john", "hashcat"], "ssl": ["ssl_scanner"], "tls": ["ssl_scanner"],
+        "رؤوس": ["security_headers"], "headers": ["security_headers"],
+        "كوكيز": ["cookie_analyzer"], "cors": ["cors_checker"],
+        "clickjack": ["clickjacking"], "arp": ["arp_watchdog"], "spoof": ["arp_watchdog"],
+        "hashdump": ["hashdump"], "sam": ["hashdump"],
+        "صلاحيات": ["getsystem"], "system": ["getsystem"],
+        "persistence": ["persistence"], "باب خلفي": ["persistence"],
+        "keylogger": ["keylogger"], "تجسس": ["keylogger"],
+        "migrate": ["migrate"], "pivot": ["pivoting"], "شبكة داخلية": ["pivoting"],
+        "metasploit": ["metasploit"], "beef": ["beef"], "متصفح": ["beef"],
+        "هندسة اجتماعية": ["set"], "تصيد": ["set"],
+        "empire": ["empire"], "powershell": ["empire"],
+        "cobalt": ["cobalt_strike"], "toolx": ["toolx"],
     }
 
     matched_tools = set()
@@ -267,7 +293,7 @@ def ai_analyze_query(query):
 
 def generate_ai_response(query, matched_tools):
     if not matched_tools:
-        return "عذراً، لم أجد أدوات مناسبة لاستفسارك. جرب كلمات مفتاحية مثل: فحص منافذ، تخمين كلمات مرور، جمع معلومات."
+        return "عذراً، لم أجد أدوات مناسبة لاستفسارك."
 
     cat_names = {
         "scanner": "الفحص", "exploit": "الاستغلال", "osint": "OSINT",
@@ -284,47 +310,91 @@ def generate_ai_response(query, matched_tools):
         response += f"   📝 {tool['desc']}\n"
         response += f"   ⚡ `{tool['usage']}`\n\n"
 
-    response += "---\n"
-    response += "💡 **نصيحة:** اضغط على اسم الأداة في القائمة الجانبية لعرض الكود الكامل وأمر الاستخدام."
+    response += "---\n💡 **نصيحة:** استعرض الأدوات من القائمة الجانبية لعرض الكود الكامل."
 
     return response
 
-# ==================== الشريط الجانبي (ثابت ومفتوح دائماً) ====================
-with st.sidebar:
-    st.markdown("# 💀 إرث إليوت")
-    st.markdown("### Eliot's Legacy + AI")
-    st.divider()
+# ==================== عرض الأدوات ====================
+def render_tools(tools_in_cat, cat_info):
+    if tools_in_cat:
+        cols_per_row = 2
+        for i in range(0, len(tools_in_cat), cols_per_row):
+            cols = st.columns(cols_per_row)
+            for j in range(cols_per_row):
+                idx = i + j
+                if idx < len(tools_in_cat):
+                    tool = tools_in_cat[idx]
+                    with cols[j]:
+                        with st.expander(f"{cat_info['icon']} {tool['name']}", expanded=False):
+                            st.markdown(f"**{tool['desc']}**")
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.caption(f"🚨 **{tool.get('risk', 'N/A').upper()}**")
+                            with col2:
+                                st.caption(f"📂 {cat_info['label']}")
+                            with col3:
+                                st.caption("💉 لقاح متوفر")
+                            st.divider()
+                            st.caption("📋 **الكود الخام الكامل:**")
+                            st.code(tool['code'], language="bash", line_numbers=True)
+                            st.caption("⚡ **أمر الاستخدام:**")
+                            st.code(tool['usage'], language="bash")
+                            if 'vaccine' in tool:
+                                st.info(f"💉 **اللقاح:** {tool['vaccine']}")
 
-    total_tools = len(TOOLS)
-    st.markdown(f"### 📊 إحصائيات")
-    st.markdown(f"- **{total_tools}** أداة خام كاملة")
-    st.markdown(f"- **{len(CATEGORIES)}** فئات رئيسية")
-    st.markdown(f"- **🧠 مساعد ذكي**")
-    st.divider()
+# ==================== الشريط الجانبي المخصص ====================
+all_categories = list(CATEGORIES.keys())
+display_categories = ["ai", "all"] + all_categories + ["terminal"]
 
-    all_categories = list(CATEGORIES.keys())
-    display_categories = ["ai", "all"] + all_categories + ["terminal"]
+# استخدام session_state لحفظ الاختيار
+if "selected_cat" not in st.session_state:
+    st.session_state.selected_cat = "all"
 
-    selected_cat = st.radio(
-        "📂 اختر الوضع",
-        options=display_categories,
-        format_func=lambda x: (
-            "🧠 المساعد الذكي" if x == "ai"
-            else "📋 عرض الكل" if x == "all"
-            else "💻 الطرفية الحية" if x == "terminal"
-            else f"{CATEGORIES[x]['icon']} {CATEGORIES[x]['label']}"
-        ),
-        key="category_selector"
-    )
+# HTML للشريط الجانبي
+sidebar_html = '<div class="custom-sidebar">'
+sidebar_html += '<div class="sidebar-title">💀 إرث إليوت</div>'
+sidebar_html += '<div class="sidebar-subtitle">ELIOT\'S LEGACY</div>'
+sidebar_html += f'<div class="sidebar-stats">📊 <span>{len(TOOLS)}</span> أداة خام<br>📂 <span>{len(CATEGORIES)}</span> فئات</div>'
+sidebar_html += '<div class="sidebar-divider"></div>'
+sidebar_html += '<div class="sidebar-radio">'
 
-    st.divider()
-    st.caption("⚡ جميع الأدوات للأغراض التعليمية فقط")
-    st.caption("🛡️ Built with Streamlit by Sabriniak")
+for cat_key in display_categories:
+    label = ""
+    if cat_key == "ai":
+        label = "🧠 المساعد الذكي"
+    elif cat_key == "all":
+        label = "📋 عرض الكل"
+    elif cat_key == "terminal":
+        label = "💻 الطرفية الحية"
+    else:
+        cat_info = CATEGORIES.get(cat_key, {"icon": "🔧", "label": cat_key})
+        label = f"{cat_info['icon']} {cat_info['label']}"
+
+    active_class = "active" if st.session_state.selected_cat == cat_key else ""
+    sidebar_html += f'<a href="?cat={cat_key}" class="sidebar-radio-btn {active_class}">{label}</a>'
+
+sidebar_html += '</div>'
+sidebar_html += '<div class="sidebar-divider"></div>'
+sidebar_html += '<div class="sidebar-footer">🛡️ للأغراض التعليمية فقط<br>Built by Sabriniak</div>'
+sidebar_html += '</div>'
+
+st.markdown(sidebar_html, unsafe_allow_html=True)
+
+# ==================== قراءة الاختيار من الـ URL ====================
+query_params = st.query_params
+if "cat" in query_params:
+    st.session_state.selected_cat = query_params["cat"]
+
+selected_cat = st.session_state.selected_cat
 
 # ==================== المحتوى الرئيسي ====================
+st.markdown('<div class="main-content">', unsafe_allow_html=True)
+
 st.title("💀 إرث إليوت | Eliot's Legacy")
 st.markdown("### الأرشيف الكامل + المساعد الذكي + الطرفية الحية")
 st.divider()
+
+total_tools = len(TOOLS)
 
 # ==================== المساعد الذكي ====================
 if selected_cat == "ai":
@@ -361,7 +431,6 @@ if selected_cat == "ai":
     if st.session_state.ai_history:
         for item in reversed(st.session_state.ai_history):
             st.markdown(f'<div class="ai-response">{item["response"]}</div>', unsafe_allow_html=True)
-
             if item["tools"]:
                 st.markdown("#### 🔧 الأدوات المقترحة:")
                 cols = st.columns(min(len(item["tools"]), 3))
@@ -426,74 +495,22 @@ elif selected_cat == "all":
         if tools_in_cat:
             st.subheader(f"{cat_info['icon']} {cat_info['label']} ({len(tools_in_cat)} أداة)")
             st.divider()
-            cols_per_row = 2
-            for i in range(0, len(tools_in_cat), cols_per_row):
-                cols = st.columns(cols_per_row)
-                for j in range(cols_per_row):
-                    idx = i + j
-                    if idx < len(tools_in_cat):
-                        tool = tools_in_cat[idx]
-                        with cols[j]:
-                            with st.expander(f"{cat_info['icon']} {tool['name']}", expanded=False):
-                                st.markdown(f"**{tool['desc']}**")
-                                col1, col2, col3 = st.columns(3)
-                                with col1:
-                                    st.caption(f"🚨 الخطورة: **{tool.get('risk', 'N/A').upper()}**")
-                                with col2:
-                                    st.caption(f"📂 الفئة: {cat_info['label']}")
-                                with col3:
-                                    st.caption(f"💉 لقاح متوفر")
-                                st.divider()
-                                st.caption("📋 **الكود الخام الكامل:**")
-                                st.code(tool['code'], language="bash", line_numbers=True)
-                                st.caption("⚡ **أمر الاستخدام:**")
-                                st.code(tool['usage'], language="bash")
-                                if 'vaccine' in tool:
-                                    st.info(f"💉 **اللقاح:** {tool['vaccine']}")
+            render_tools(tools_in_cat, cat_info)
             st.divider()
 
 # ==================== عرض فئة محددة ====================
 else:
-    cat_info = CATEGORIES[selected_cat]
+    cat_info = CATEGORIES.get(selected_cat, {"icon": "🔧", "label": selected_cat})
     tools_in_cat = [t for t in TOOLS if t['cat'] == selected_cat]
     st.subheader(f"{cat_info['icon']} {cat_info['label']} ({len(tools_in_cat)} أداة)")
     st.divider()
     if tools_in_cat:
-        cols_per_row = 2
-        for i in range(0, len(tools_in_cat), cols_per_row):
-            cols = st.columns(cols_per_row)
-            for j in range(cols_per_row):
-                idx = i + j
-                if idx < len(tools_in_cat):
-                    tool = tools_in_cat[idx]
-                    with cols[j]:
-                        with st.expander(f"{cat_info['icon']} {tool['name']}", expanded=False):
-                            st.markdown(f"**{tool['desc']}**")
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.caption(f"🚨 الخطورة: **{tool.get('risk', 'N/A').upper()}**")
-                            with col2:
-                                st.caption(f"📂 الفئة: {cat_info['label']}")
-                            with col3:
-                                st.caption(f"💉 لقاح متوفر")
-                            st.divider()
-                            st.caption("📋 **الكود الخام الكامل:**")
-                            st.code(tool['code'], language="bash", line_numbers=True)
-                            st.caption("⚡ **أمر الاستخدام:**")
-                            st.code(tool['usage'], language="bash")
-                            if 'vaccine' in tool:
-                                st.info(f"💉 **اللقاح:** {tool['vaccine']}")
+        render_tools(tools_in_cat, cat_info)
     else:
         st.info("لا توجد أدوات في هذه الفئة حالياً.")
 
 # ==================== التذييل ====================
 st.divider()
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.caption(f"💀 إرث إليوت v3.1")
-with col2:
-    st.caption(f"📊 {total_tools} أداة")
-with col3:
-    st.caption("🧠 + مساعد ذكي")
-with col4:
-    st.caption("🛡️ تعليمي فقط")
+st.caption(f"💀 إرث إليوت v3.2 | 📊 {total_tools} أداة | 🧠 مساعد ذكي | 🛡️ تعليمي فقط")
+
+st.markdown('</div>', unsafe_allow_html=True)
