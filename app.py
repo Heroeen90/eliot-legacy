@@ -9,23 +9,39 @@ st.set_page_config(
     page_title="إرث إليوت | Eliot's Legacy",
     page_icon="💀",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded"  # الشريط الجانبي مفتوح دائماً
 )
 
-# إخفاء علامة Streamlit المائية
-hide_streamlit_style = """
+# ==================== CSS مخصص ====================
+st.markdown("""
 <style>
+/* إخفاء علامة Streamlit */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
+
+/* منع اختفاء الشريط الجانبي */
+[data-testid="stSidebar"] {
+    min-width: 280px !important;
+    max-width: 280px !important;
+}
+[data-testid="stSidebarCollapsedControl"] {
+    display: none !important;
+}
+
+/* إطارات الأدوات */
 .stExpander {
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-radius: 10px !important;
     margin-bottom: 10px !important;
+    transition: all 0.3s ease !important;
 }
 .stExpander:hover {
     border-color: rgba(255, 0, 127, 0.3) !important;
+    box-shadow: 0 0 15px rgba(255, 0, 127, 0.1) !important;
 }
+
+/* الطرفية */
 .terminal-output {
     background-color: #0a0a0a;
     color: #00ffcc;
@@ -38,6 +54,8 @@ header {visibility: hidden;}
     white-space: pre-wrap;
     border: 1px solid #00ffcc33;
 }
+
+/* رد المساعد الذكي */
 .ai-response {
     background: linear-gradient(135deg, rgba(0,255,204,0.05), rgba(124,77,255,0.05));
     border: 1px solid rgba(0,255,204,0.2);
@@ -45,21 +63,56 @@ header {visibility: hidden;}
     padding: 20px;
     margin: 10px 0;
 }
-.suggestion-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 8px;
-    padding: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
+
+/* تحسين الأزرار */
+.stButton > button {
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
 }
-.suggestion-card:hover {
-    border-color: #00ffcc;
-    background: rgba(0,255,204,0.05);
+.stButton > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+}
+
+/* حقل الإدخال */
+.stTextInput > div > div > input {
+    border-radius: 8px !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+}
+.stTextInput > div > div > input:focus {
+    border-color: #00ffcc !important;
+    box-shadow: 0 0 10px rgba(0,255,204,0.2) !important;
+}
+
+/* Radio buttons */
+.stRadio > div {
+    gap: 4px !important;
+}
+.stRadio label {
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    transition: all 0.2s ease !important;
+}
+.stRadio label:hover {
+    background: rgba(255,255,255,0.03) !important;
+}
+
+/* شريط التمرير */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0,255,204,0.3);
 }
 </style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # ==================== دالة تنفيذ الأوامر ====================
 def execute_command(command):
@@ -116,14 +169,12 @@ def execute_command(command):
 
 # ==================== المساعد الذكي ====================
 def ai_analyze_query(query):
-    """تحليل استفسار المستخدم واقتراح الأدوات المناسبة"""
     query_lower = query.lower()
 
-    # قاعدة معرفية للكلمات المفتاحية
     keyword_map = {
         "منافذ": ["nmap", "masscan"],
         "بورت": ["nmap", "masscan"],
-        "فحص": ["nmap", "masscan"],
+        "فحص": ["nmap", "masscan", "nikto"],
         "شبكة": ["nmap", "arp_sweep"],
         "واي فاي": ["wifi_scan"],
         "wifi": ["wifi_scan"],
@@ -139,7 +190,7 @@ def ai_analyze_query(query):
         "bash": ["shellshock"],
         "shellshock": ["shellshock"],
         "sql": ["sqli_tester", "sqlmap"],
-        "حقن": ["sqli_tester", "nosql_injection", "ssti_detector"],
+        "حقن": ["sqli_tester", "nosql_injection", "ssti_detector", "xxe_tester"],
         "xss": ["xss_scanner"],
         "jwt": ["jwt_toolkit"],
         "token": ["jwt_toolkit"],
@@ -198,19 +249,16 @@ def ai_analyze_query(query):
         "toolx": ["toolx"],
     }
 
-    # البحث عن تطابقات
     matched_tools = set()
     for keyword, tools in keyword_map.items():
         if keyword in query_lower:
             matched_tools.update(tools)
 
-    # إذا لم نجد شيئاً، نقترح أدوات عامة
     if not matched_tools:
         matched_tools = ["nmap", "metasploit", "theharvester", "hydra"]
 
-    # تحويل المعرفات إلى كائنات الأدوات
     results = []
-    for tool_id in list(matched_tools)[:10]:  # أقصى 10 اقتراحات
+    for tool_id in list(matched_tools)[:10]:
         tool = next((t for t in TOOLS if t['id'] == tool_id), None)
         if tool:
             results.append(tool)
@@ -218,7 +266,6 @@ def ai_analyze_query(query):
     return results
 
 def generate_ai_response(query, matched_tools):
-    """توليد رد ذكي بالعربية"""
     if not matched_tools:
         return "عذراً، لم أجد أدوات مناسبة لاستفسارك. جرب كلمات مفتاحية مثل: فحص منافذ، تخمين كلمات مرور، جمع معلومات."
 
@@ -242,7 +289,7 @@ def generate_ai_response(query, matched_tools):
 
     return response
 
-# ==================== الشريط الجانبي ====================
+# ==================== الشريط الجانبي (ثابت ومفتوح دائماً) ====================
 with st.sidebar:
     st.markdown("# 💀 إرث إليوت")
     st.markdown("### Eliot's Legacy + AI")
@@ -284,10 +331,9 @@ if selected_cat == "ai":
     st.subheader("🧠 المساعد الذكي | AI Assistant")
     st.markdown("اسأل أي سؤال عن أدوات إليوت وسأقترح لك الأنسب.")
 
-    # حقل الإدخال
     user_query = st.text_input(
         "💬 ماذا تريد أن تفعل؟",
-        placeholder="مثال: أريد فحص منافذ شبكة، أو كيفية اختراق SMB، أو جمع معلومات عن نطاق...",
+        placeholder="مثال: أريد فحص منافذ شبكة، أو كيفية اختراق SMB...",
         key="ai_query_input"
     )
 
@@ -299,11 +345,9 @@ if selected_cat == "ai":
             if "ai_history" in st.session_state:
                 st.session_state.ai_history = []
 
-    # تهيئة السجل
     if "ai_history" not in st.session_state:
         st.session_state.ai_history = []
 
-    # تحليل الاستفسار
     if analyze_btn and user_query:
         with st.spinner("🧠 جاري تحليل استفسارك..."):
             matched_tools = ai_analyze_query(user_query)
@@ -314,12 +358,10 @@ if selected_cat == "ai":
                 "tools": matched_tools
             })
 
-    # عرض التاريخ
     if st.session_state.ai_history:
         for item in reversed(st.session_state.ai_history):
             st.markdown(f'<div class="ai-response">{item["response"]}</div>', unsafe_allow_html=True)
 
-            # عرض بطاقات الأدوات المقترحة
             if item["tools"]:
                 st.markdown("#### 🔧 الأدوات المقترحة:")
                 cols = st.columns(min(len(item["tools"]), 3))
@@ -332,25 +374,22 @@ if selected_cat == "ai":
                             st.caption(f"⚡ `{tool['usage']}`")
                             if 'vaccine' in tool:
                                 st.info(f"💉 {tool['vaccine']}")
-
             st.divider()
     else:
         st.info("👋 مرحباً! أنا المساعد الذكي. اكتب ما تريد فعله وسأقترح عليك الأدوات المناسبة.")
         st.markdown("""
-        **أمثلة على ما يمكنك سؤالي عنه:**
+        **أمثلة:**
         - "أريد فحص منافذ شبكة"
         - "كيف أخترق SMB؟"
         - "أداة لجمع المعلومات عن نطاق"
         - "تخمين كلمات المرور SSH"
         - "فحص ثغرات XSS"
-        - "استخراج الهاشات من ويندوز"
-        - "كيف أصنع باباً خلفياً؟"
         """)
 
 # ==================== الطرفية الحية ====================
 elif selected_cat == "terminal":
     st.subheader("💻 الطرفية الحية | Live Terminal")
-    st.markdown("نفذ أوامر حقيقية مباشرة من هنا. **لأغراض التعليم فقط.**")
+    st.markdown("نفذ أوامر حقيقية مباشرة من هنا.")
 
     command = st.text_input(
         "اكتب أمراً:",
@@ -376,25 +415,17 @@ elif selected_cat == "terminal":
 
     if st.session_state.terminal_history:
         st.markdown("### 📟 المخرجات:")
-        st.markdown(
-            f'<div class="terminal-output">{st.session_state.terminal_history}</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown(f'<div class="terminal-output">{st.session_state.terminal_history}</div>', unsafe_allow_html=True)
     else:
         st.info("💡 اكتب أمراً في الحقل أعلاه واضغط 'نفذ'.")
-
-    st.divider()
-    st.caption("⚠️ الأوامر المتاحة محدودة لأسباب أمنية.")
 
 # ==================== عرض الكل ====================
 elif selected_cat == "all":
     for cat_key, cat_info in CATEGORIES.items():
         tools_in_cat = [t for t in TOOLS if t['cat'] == cat_key]
-
         if tools_in_cat:
             st.subheader(f"{cat_info['icon']} {cat_info['label']} ({len(tools_in_cat)} أداة)")
             st.divider()
-
             cols_per_row = 2
             for i in range(0, len(tools_in_cat), cols_per_row):
                 cols = st.columns(cols_per_row)
@@ -427,7 +458,6 @@ else:
     tools_in_cat = [t for t in TOOLS if t['cat'] == selected_cat]
     st.subheader(f"{cat_info['icon']} {cat_info['label']} ({len(tools_in_cat)} أداة)")
     st.divider()
-
     if tools_in_cat:
         cols_per_row = 2
         for i in range(0, len(tools_in_cat), cols_per_row):
@@ -460,7 +490,7 @@ else:
 st.divider()
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.caption(f"💀 إرث إليوت v3.0")
+    st.caption(f"💀 إرث إليوت v3.1")
 with col2:
     st.caption(f"📊 {total_tools} أداة")
 with col3:
